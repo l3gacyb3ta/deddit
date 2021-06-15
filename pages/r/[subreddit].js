@@ -1,17 +1,35 @@
 import Head from 'next/head'
-import styles from '../styles/Home.module.css'
+import styles from '../../styles/Home.module.css'
 import React from 'react'
 import ReactPlayer from 'react-player'
 
-// import ModalVideo from 'react-modal-video'
+export async function getServerSideProps({ query }) {
+  var og = require('open-graph')
+  var subreddit = query.subreddit
+  
 
-export async function getServerSideProps() {
   try {
-    const res = await fetch("https://www.reddit.com/r/popular.json");
-    const posts = await res.json();
+    const res = await fetch("https://www.reddit.com/r/"+subreddit+".json");
+    var posts = await res.json();
+    var metadata = {}
+
+    for (var num in posts.data.children) {
+      var post = posts.data.children[num]
+      if (post.data.post_hint == "link") {
+        var i = post.data.url
+        og(post.data.url, function (err, meta) {
+          //console.log(meta)
+          metadata[post.data.url] = meta
+        })
+      }
+    }
+
+    console.log(metadata)
+
     return {
       props: {
         posts: posts.data.children,
+        meta: metadata
       }, // will be passed to the page component as props
     };
   } catch (error) {
@@ -25,8 +43,27 @@ export async function getServerSideProps() {
   }
 }
 
+function betterwrap(str, width, brk, cut) {
+  // Cut is only for compatiblity with old wrap
+  let splited = str.split(" ")
+  let finalstring = ""
+  let count = 0
+  for (var part in splited) {
+      count = count + 1
+      finalstring = finalstring + splited[part] + " "
+      if (count == width) {
+          finalstring = finalstring + brk
+          count = 0
+      }   
+  }
+
+  return finalstring
+}
+
 export default function Home(props) {
   var posts = props['posts']
+  var metadata = props['meta']
+
 
   return (
     <div className={styles.container}>
@@ -38,9 +75,9 @@ export default function Home(props) {
       </Head>
 
       <main className={styles.main}>
-        <div><h1 className={styles.title}>Deddit</h1></div>
-          
+      <div><h1 className={styles.title}>Deddit</h1></div>
         <div className={styles.grid}>
+        
           {
             Object.entries(posts).map(([key, post]) => {
               //console.log(post)
@@ -50,20 +87,25 @@ export default function Home(props) {
 
               if (type == "image") {
                 return (
-                  <div className="wrapper inline fixed block" key={key}>
+                  <div className="wrapper fixed block" key={key}>
                     <div>
-                      <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
+                      <h2 className={"block fixed " + styles.textcenter} dangerouslySetInnerHTML={{__html: betterwrap(post.data.title, 7, '<br/>', true)}}></h2>
                       <a href={post.data.url}><img className={styles.imagecenter} src={post.data.url} height="300" /></a>
+                      <a className={styles.textcenter} href={"/u/" + post.data.author}>@{post.data.author}</a>
                     </div>
                   </div>
                 )
               }
               else if (type == "link") {
+                console.log(post.data.metadata)
+                var metadata={image:""}
+
                 return (
                   <div className="wrapper fixed block" key={key}>
                     <div>
-                      <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
+                    <h2 className={"block fixed " + styles.textcenter} dangerouslySetInnerHTML={{__html: betterwrap(post.data.title, 7, '<br/>', true)}}></h2>
                       <a className={styles.link} href={post.data.url}><h3>{post.data.title}</h3></a>
+                      <img src = {metadata.image}></img>
                     </div>
                   </div>
                 )
@@ -75,46 +117,32 @@ export default function Home(props) {
                 return (
                   <div className="wrapper fixed block" key={key}>
                     <div>
-                      <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
-                      <p>{type}</p>
-                      <ReactPlayer url={src} controls='true' />
+                      <h2 className={"block fixed " + styles.textcenter} dangerouslySetInnerHTML={{__html: betterwrap(post.data.title, 7, '<br/>', true)}}></h2>
+                      <ReactPlayer url={src} controls={true} />
                     </div>
                   </div>
                 )
               }
               else if (type == "rich:video") {
-                let html = post.data.media.oembed.html
+                let thumb = post.data.media.oembed.thumbnail_url
                 // console.log(post.data)
-                // console.log(src)
+                //console.log(html)
                 // let src = ""
-                return (
-                  <div className="wrapper fixed block" key={key}>
-                    <div>
-                      <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
-                      
-                    </div>
-                  </div>
-                )
-              }
-              
-              else if (type == undefined) {
-                console.log(post.data)
-                return(
-                <div className="wrapper fixed block" key={key}>
-                <div>
-                  <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
-                  <p>{post.data.selftext}</p>
-                </div>
-              </div>
-              )
-              }
-
-              else {
                 
                 return (
                   <div className="wrapper fixed block" key={key}>
                     <div>
-                      <h2 className={"block fixed " + styles.textcenter}>{post.data.title}</h2>
+                      <h2 className={"block fixed " + styles.textcenter} dangerouslySetInnerHTML={{__html: betterwrap(post.data.title, 7, '<br/>', true)}}></h2>
+                      <img src={thumb}></img>
+                    </div>
+                  </div>
+                )
+              }
+              else {
+                return (
+                  <div className="wrapper fixed block" key={key}>
+                    <div>
+                      <h2 className={"block fixed " + styles.textcenter} dangerouslySetInnerHTML={{__html: betterwrap(post.data.title, 7, '<br/>', true)}}></h2>
                       <p>{type}</p>
                     </div>
                   </div>
@@ -122,7 +150,6 @@ export default function Home(props) {
               }
             })
           }
-
         </div>
       </main>
     </div>
